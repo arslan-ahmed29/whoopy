@@ -28,7 +28,7 @@ npm install
 npm start                             # auto-detects ~/.openwhoop/db.sqlite
 ```
 
-Open <http://localhost:3000> — no login needed. Re-run `download-history` + `detect-events` whenever you want fresh data. Set `OPENWHOOP_DB` in `.env` if your database lives elsewhere.
+Open <http://localhost:3001> — no login needed. Re-run `download-history` + `detect-events` whenever you want fresh data. Set `OPENWHOOP_DB` in `.env` if your database lives elsewhere.
 
 In local mode the dashboard shows recovery (sleep score, HRV, resting HR), sleep duration, daily strain, workouts with heart-rate stats, plus a stress/SpO2/skin-temperature chart. Sleep-stage breakdowns and calories are cloud-API-only for now.
 
@@ -40,7 +40,7 @@ In local mode the dashboard shows recovery (sleep score, HRV, resting HR), sleep
 2. **A WHOOP developer app** — free to create:
    - Go to the [WHOOP Developer Dashboard](https://developer.whoop.com) and sign in with your WHOOP account.
    - Create a Team (if prompted), then create an App.
-   - Set the **Redirect URL** to `http://localhost:3000/auth/callback`.
+   - Set the **Redirect URL** to `http://localhost:3001/auth/callback`.
    - Enable scopes: `read:profile`, `read:recovery`, `read:cycles`, `read:sleep`, `read:workout`, `read:body_measurement`, `offline`.
    - Copy the **Client ID** and **Client Secret** it gives you.
 
@@ -55,7 +55,7 @@ cp .env.example .env
 npm start
 ```
 
-Open <http://localhost:3000>, click **Connect WHOOP**, and authorize the app. Your tokens are stored locally in `.tokens.json` (gitignored) and refreshed automatically.
+Open <http://localhost:3001>, click **Connect WHOOP**, and authorize the app. Your tokens are stored locally in `.tokens.json` (gitignored) and refreshed automatically.
 
 ## What it shows
 

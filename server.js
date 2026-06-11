@@ -11,9 +11,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const {
   WHOOP_CLIENT_ID,
   WHOOP_CLIENT_SECRET,
-  WHOOP_REDIRECT_URI = "http://localhost:3000/auth/callback",
+  WHOOP_REDIRECT_URI = "http://localhost:3001/auth/callback",
   WHOOPY_SOURCE,
-  PORT = 3000,
+  PORT = 3001,
 } = process.env;
 
 // "openwhoop" reads the local SQLite database synced by the openwhoop CLI
