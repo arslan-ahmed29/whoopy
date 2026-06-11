@@ -1,12 +1,42 @@
 # whoopy
 
-A personal WHOOP dashboard built on the official [WHOOP Developer API](https://developer.whoop.com). It shows your recovery, HRV, resting heart rate, sleep stages, daily strain, and recent workouts — all pulled live from your own WHOOP account via OAuth.
+A personal WHOOP dashboard that shows your recovery, HRV, resting heart rate, sleep, daily strain, stress, SpO2, skin temperature, and recent workouts — with two interchangeable data sources:
+
+1. **Local mode (no membership needed)** — your band syncs over your computer's Bluetooth via the [openwhoop](https://github.com/bWanShiTong/openwhoop) CLI; all data stays on your machine.
+2. **Cloud mode** — the official [WHOOP Developer API](https://developer.whoop.com) via OAuth (requires an active membership).
 
 ![Stack](https://img.shields.io/badge/stack-Node.js%20%2B%20Express%20%2B%20Chart.js-blue)
 
-## What you need
+## Local mode — no membership, no cloud
 
-1. **A WHOOP membership** with data in your account (any WHOOP band works — the API serves processed data from WHOOP's cloud, so this is not tied to a specific band generation).
+This works like [goose](https://github.com/b-nnett/goose): the band is read directly over Bluetooth and metrics are computed locally. WHOOP 4.0 is fully supported by openwhoop; WHOOP 5.0/MG support exists in openwhoop (Gen5 sync) but is newer and less battle-tested.
+
+You need: a computer with Bluetooth LE (Linux or macOS), [Rust](https://rustup.rs), and Node.js >= 22.5.
+
+```sh
+# 1. Install and run openwhoop (one-time setup)
+git clone https://github.com/bWanShiTong/openwhoop
+cd openwhoop
+cp .env.example .env
+cargo run -r -- scan                  # find your band; put its address/name in .env under WHOOP
+cargo run -r -- download-history      # sync raw data from the band (slow the first time)
+cargo run -r -- detect-events         # compute sleep, HRV, activities
+cargo run -r -- calculate-stress      # optional: stress scores
+
+# 2. Run the dashboard (in this repo)
+npm install
+npm start                             # auto-detects ~/.openwhoop/db.sqlite
+```
+
+Open <http://localhost:3000> — no login needed. Re-run `download-history` + `detect-events` whenever you want fresh data. Set `OPENWHOOP_DB` in `.env` if your database lives elsewhere.
+
+In local mode the dashboard shows recovery (sleep score, HRV, resting HR), sleep duration, daily strain, workouts with heart-rate stats, plus a stress/SpO2/skin-temperature chart. Sleep-stage breakdowns and calories are cloud-API-only for now.
+
+## Cloud mode — official WHOOP API
+
+### What you need
+
+1. **A WHOOP membership** with data in your account.
 2. **A WHOOP developer app** — free to create:
    - Go to the [WHOOP Developer Dashboard](https://developer.whoop.com) and sign in with your WHOOP account.
    - Create a Team (if prompted), then create an App.

@@ -110,11 +110,14 @@ function renderSleep(records) {
     $("sleep-sub").textContent = asleep ? `${fmtDuration(asleep)} in bed, ${fmtDate(latest.end)}` : fmtDate(latest.end);
   }
 
-  renderChart("chart-sleep", {
-    type: "bar",
-    data: {
-      labels: scored.map((s) => fmtDate(s.end)),
-      datasets: [
+  const labels = scored.map((s) => fmtDate(s.end));
+  // The cloud API provides per-stage breakdowns; openwhoop local mode only
+  // has total time in bed, so fall back to a single-series chart.
+  const hasStages = scored.some(
+    (s) => s.score.stage_summary?.total_slow_wave_sleep_time_milli != null
+  );
+  const datasets = hasStages
+    ? [
         {
           label: "Deep (SWS)",
           data: scored.map((s) => (s.score.stage_summary?.total_slow_wave_sleep_time_milli ?? 0) / 3600000),
@@ -130,8 +133,18 @@ function renderSleep(records) {
           data: scored.map((s) => (s.score.stage_summary?.total_light_sleep_time_milli ?? 0) / 3600000),
           backgroundColor: "#60a5fa",
         },
-      ],
-    },
+      ]
+    : [
+        {
+          label: "Time in bed",
+          data: scored.map((s) => (s.score.stage_summary?.total_in_bed_time_milli ?? 0) / 3600000),
+          backgroundColor: "#60a5fa",
+        },
+      ];
+
+  renderChart("chart-sleep", {
+    type: "bar",
+    data: { labels, datasets },
     options: {
       scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true } },
     },
@@ -144,7 +157,9 @@ function renderCycles(records) {
 
   if (latest) {
     $("strain-value").textContent = latest.score.strain.toFixed(1);
-    $("strain-sub").textContent = `${Math.round(latest.score.kilojoule / 4.184)} kcal, ${fmtDate(latest.start)}`;
+    $("strain-sub").textContent = latest.score.kilojoule
+      ? `${Math.round(latest.score.kilojoule / 4.184)} kcal, ${fmtDate(latest.start)}`
+      : fmtDate(latest.start);
   }
 
   renderChart("chart-strain", {
@@ -161,6 +176,33 @@ function renderCycles(records) {
       }],
     },
     options: { scales: { y: { min: 0, max: 21 } } },
+  });
+}
+
+function renderVitals(records) {
+  const box = $("vitals-box");
+  if (!records.length || !records.some((v) => v.stress ?? v.spo2 ?? v.skin_temp)) {
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+  const series = [
+    { key: "stress", label: "Stress", color: "#f87171" },
+    { key: "spo2", label: "SpO2 (%)", color: "#60a5fa" },
+    { key: "skin_temp", label: "Skin temp (°C)", color: "#facc15" },
+  ].filter((s) => records.some((v) => v[s.key] != null));
+  renderChart("chart-vitals", {
+    type: "line",
+    data: {
+      labels: records.map((v) => fmtDate(v.day)),
+      datasets: series.map((s) => ({
+        label: s.label,
+        data: records.map((v) => v[s.key]),
+        borderColor: s.color,
+        tension: 0.3,
+        spanGaps: true,
+      })),
+    },
   });
 }
 
@@ -186,18 +228,20 @@ async function loadDashboard() {
   const days = $("range-select").value;
   $("error-banner").classList.add("hidden");
   try {
-    const [profile, recovery, sleep, cycles, workouts] = await Promise.all([
+    const [profile, recovery, sleep, cycles, workouts, vitals] = await Promise.all([
       fetchJSON("/api/profile"),
       fetchJSON(`/api/recovery?days=${days}`),
       fetchJSON(`/api/sleep?days=${days}`),
       fetchJSON(`/api/cycles?days=${days}`),
       fetchJSON(`/api/workouts?days=${days}`),
+      fetchJSON(`/api/vitals?days=${days}`),
     ]);
     $("user-name").textContent = `${profile.profile.first_name} ${profile.profile.last_name}`;
     renderRecovery(recovery);
     renderSleep(sleep);
     renderCycles(cycles);
     renderWorkouts(workouts);
+    renderVitals(vitals);
   } catch (err) {
     $("error-banner").textContent = err.message;
     $("error-banner").classList.remove("hidden");
@@ -207,6 +251,21 @@ async function loadDashboard() {
 async function init() {
   const status = await fetchJSON("/api/status");
   const button = $("auth-button");
+
+  if (status.source === "openwhoop") {
+    button.classList.add("hidden");
+    if (!status.authenticated) {
+      $("error-banner").textContent =
+        `openwhoop database not found at ${status.dbPath}. ` +
+        "Run `openwhoop download-history` then `openwhoop detect-events` and refresh.";
+      $("error-banner").classList.remove("hidden");
+      return;
+    }
+    $("dashboard").classList.remove("hidden");
+    $("range-select").onchange = loadDashboard;
+    await loadDashboard();
+    return;
+  }
 
   if (!status.configured) {
     $("setup-notice").classList.remove("hidden");

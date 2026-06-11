@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import "dotenv/config";
+import * as openwhoop from "./openwhoop-source.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -11,8 +12,17 @@ const {
   WHOOP_CLIENT_ID,
   WHOOP_CLIENT_SECRET,
   WHOOP_REDIRECT_URI = "http://localhost:3000/auth/callback",
+  WHOOPY_SOURCE,
   PORT = 3000,
 } = process.env;
+
+// "openwhoop" reads the local SQLite database synced by the openwhoop CLI
+// (no WHOOP membership needed); anything else uses the WHOOP cloud API.
+// Defaults to openwhoop automatically when its database exists and no API
+// credentials are configured.
+const LOCAL_MODE =
+  WHOOPY_SOURCE === "openwhoop" ||
+  (!WHOOPY_SOURCE && !WHOOP_CLIENT_ID && openwhoop.isAvailable());
 
 const WHOOP_AUTH_URL = "https://api.prod.whoop.com/oauth/oauth2/auth";
 const WHOOP_TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token";
@@ -159,7 +169,16 @@ app.post("/auth/logout", (req, res) => {
 });
 
 app.get("/api/status", async (req, res) => {
+  if (LOCAL_MODE) {
+    return res.json({
+      source: "openwhoop",
+      configured: true,
+      authenticated: openwhoop.isAvailable(),
+      dbPath: openwhoop.dbPath,
+    });
+  }
   res.json({
+    source: "whoop-api",
     configured: Boolean(WHOOP_CLIENT_ID && WHOOP_CLIENT_SECRET),
     authenticated: Boolean(await getAccessToken().catch(() => null)),
   });
@@ -170,6 +189,12 @@ function handleApiError(res, err) {
 }
 
 app.get("/api/profile", async (req, res) => {
+  if (LOCAL_MODE) {
+    return res.json({
+      profile: { first_name: "Local", last_name: "(openwhoop)" },
+      body: null,
+    });
+  }
   try {
     const [profile, body] = await Promise.all([
       whoopGet("/user/profile/basic"),
@@ -193,7 +218,8 @@ function rangeQuery(req) {
 
 app.get("/api/recovery", async (req, res) => {
   try {
-    res.json(await whoopGetAll("/recovery", rangeQuery(req)));
+    const range = rangeQuery(req);
+    res.json(LOCAL_MODE ? await openwhoop.getRecovery(range) : await whoopGetAll("/recovery", range));
   } catch (err) {
     handleApiError(res, err);
   }
@@ -201,7 +227,8 @@ app.get("/api/recovery", async (req, res) => {
 
 app.get("/api/sleep", async (req, res) => {
   try {
-    res.json(await whoopGetAll("/activity/sleep", rangeQuery(req)));
+    const range = rangeQuery(req);
+    res.json(LOCAL_MODE ? await openwhoop.getSleep(range) : await whoopGetAll("/activity/sleep", range));
   } catch (err) {
     handleApiError(res, err);
   }
@@ -209,7 +236,8 @@ app.get("/api/sleep", async (req, res) => {
 
 app.get("/api/cycles", async (req, res) => {
   try {
-    res.json(await whoopGetAll("/cycle", rangeQuery(req)));
+    const range = rangeQuery(req);
+    res.json(LOCAL_MODE ? await openwhoop.getCycles(range) : await whoopGetAll("/cycle", range));
   } catch (err) {
     handleApiError(res, err);
   }
@@ -217,7 +245,20 @@ app.get("/api/cycles", async (req, res) => {
 
 app.get("/api/workouts", async (req, res) => {
   try {
-    res.json(await whoopGetAll("/activity/workout", rangeQuery(req)));
+    const range = rangeQuery(req);
+    res.json(
+      LOCAL_MODE ? await openwhoop.getWorkouts(range) : await whoopGetAll("/activity/workout", range)
+    );
+  } catch (err) {
+    handleApiError(res, err);
+  }
+});
+
+// Daily stress / SpO2 / skin temperature averages; openwhoop local mode only.
+app.get("/api/vitals", async (req, res) => {
+  if (!LOCAL_MODE) return res.json([]);
+  try {
+    res.json(await openwhoop.getVitals(rangeQuery(req)));
   } catch (err) {
     handleApiError(res, err);
   }
@@ -225,7 +266,12 @@ app.get("/api/workouts", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`whoopy dashboard running at http://localhost:${PORT}`);
-  if (!WHOOP_CLIENT_ID || !WHOOP_CLIENT_SECRET) {
+  if (LOCAL_MODE) {
+    console.log(`Local mode: reading openwhoop database at ${openwhoop.dbPath}`);
+    if (!openwhoop.isAvailable()) {
+      console.log("⚠ Database not found. Run `openwhoop download-history` and `openwhoop detect-events` first.");
+    }
+  } else if (!WHOOP_CLIENT_ID || !WHOOP_CLIENT_SECRET) {
     console.log("⚠ No WHOOP credentials found. Copy .env.example to .env and add your Client ID/Secret.");
   }
 });
