@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>whoopy — WHOOP Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>whoopy</h1>
+    <div id="user-area">
+      <span id="user-name"></span>
+      <select id="range-select" title="Date range">
+        <option value="7">7 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="90">90 days</option>
+      </select>
+      <button id="auth-button">Connect WHOOP</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="setup-notice" class="notice hidden">
+      <h2>Setup needed</h2>
+      <p>
+        The server has no WHOOP credentials yet. Create an app in the
+        <a href="https://developer.whoop.com" target="_blank" rel="noopener">WHOOP Developer Dashboard</a>,
+        then copy <code>.env.example</code> to <code>.env</code> and fill in your Client ID and Secret.
+      </p>
+    </section>
+
+    <section id="login-notice" class="notice hidden">
+      <h2>Connect your WHOOP account</h2>
+      <p>Click <strong>Connect WHOOP</strong> above to authorize this dashboard to read your data.</p>
+    </section>
+
+    <div id="dashboard" class="hidden">
+      <section class="cards">
+        <div class="card" id="card-recovery">
+          <h3>Recovery</h3>
+          <div class="big-number" id="recovery-score">–</div>
+          <div class="sub" id="recovery-sub"></div>
+        </div>
+        <div class="card" id="card-hrv">
+          <h3>HRV</h3>
+          <div class="big-number" id="hrv-value">–</div>
+          <div class="sub">ms (rMSSD)</div>
+        </div>
+        <div class="card" id="card-rhr">
+          <h3>Resting HR</h3>
+          <div class="big-number" id="rhr-value">–</div>
+          <div class="sub">bpm</div>
+        </div>
+        <div class="card" id="card-sleep">
+          <h3>Sleep Performance</h3>
+          <div class="big-number" id="sleep-score">–</div>
+          <div class="sub" id="sleep-sub"></div>
+        </div>
+        <div class="card" id="card-strain">
+          <h3>Day Strain</h3>
+          <div class="big-number" id="strain-value">–</div>
+          <div class="sub" id="strain-sub"></div>
+        </div>
+      </section>
+
+      <section class="charts">
+        <div class="chart-box"><h3>Recovery trend</h3><canvas id="chart-recovery"></canvas></div>
+        <div class="chart-box"><h3>HRV &amp; Resting HR</h3><canvas id="chart-hrv"></canvas></div>
+        <div class="chart-box"><h3>Sleep duration (hours)</h3><canvas id="chart-sleep"></canvas></div>
+        <div class="chart-box"><h3>Daily strain</h3><canvas id="chart-strain"></canvas></div>
+      </section>
+
+      <section class="table-box">
+        <h3>Recent workouts</h3>
+        <table id="workouts-table">
+          <thead>
+            <tr><th>Date</th><th>Sport</th><th>Duration</th><th>Strain</th><th>Avg HR</th><th>Max HR</th><th>Calories</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
+
+    <p id="error-banner" class="notice error hidden"></p>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
